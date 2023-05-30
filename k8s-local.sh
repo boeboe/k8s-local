@@ -60,6 +60,16 @@ function get_docker_subnet_free {
   done
 }
 
+# Get a docker container ip address
+#   args:
+#     (1) container name
+#     (2) network name
+function get_docker_container_ip {
+  [[ -z "${1}" ]] && echo "Please provide container name as 1st argument" && return || container_name="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide network name as 2nd argument" && return || network_name="${2}" ;
+  docker container inspect --format "{{(index .NetworkSettings.Networks \"${network_name}\").IPAddress}}" "${container_name}" 
+}
+
 # Start a docker network
 #   args:
 #     (1) network name
@@ -126,7 +136,28 @@ function start_kind_cluster {
   [[ -z "${2}" ]] && echo "Please provide k8s version as 2nd argument" && return || k8s_version="${2}" ;
   [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return || network_name="${3}" ;
   [[ -z "${3}" ]] && echo "Please provide docker network subnet as 4th argument" && return || network_subnet="${4}" ;
-  echo "WIP kind"
+  
+  if $(docker inspect -f '{{.State.Status}}' ${cluster_name} 2>/dev/null | grep "running" &>/dev/null) ; then
+    echo "Kind cluster '${cluster_name}' already running"
+  elif $(docker inspect -f '{{.State.Status}}' ${cluster_name} 2>/dev/null | grep "exited" &>/dev/null) ; then
+    echo "Restarting kind cluster '${cluster_name}'"
+    docker start ${cluster_name} ;
+  else
+    image="kindest/node:v${k8s_version}"
+    echo "Starting kind cluster '${cluster_name}':"
+    echo "  cluster_name: ${cluster_name}"
+    echo "  image: ${image}"
+    echo "  k8s_version: ${k8s_version}"
+    echo "  network_name: ${network_name}"
+    echo "  network_subnet: ${network_subnet}"
+
+    start_docker_network "${network_name}" "${network_subnet}" ;
+    KIND_EXPERIMENTAL_DOCKER_NETWORK=${network_name} kind create cluster --name "${cluster_name}" --image "${image}" ;
+    docker rename "${cluster_name}-control-plane" "${cluster_name}" ;
+    kubectl config rename-context "kind-${cluster_name}" "${cluster_name}" ;
+    kubeapi_address=$(get_docker_container_ip "${cluster_name}" "${network_name}") ;
+    kubectl config set-cluster "kind-${cluster_name}" --server="https://${kubeapi_address}:6443" ;
+  fi
 }
 
 # Stop a local kind cluster
@@ -134,15 +165,27 @@ function start_kind_cluster {
 #     (1) cluster name
 function stop_kind_cluster {
   [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || cluster_name="${1}" ;
-  echo "WIP kind"
+  if $(docker inspect -f '{{.State.Status}}' ${cluster_name} | grep "running" &>/dev/null) ; then
+    echo "Going to stop kind cluster '${cluster_name}'"
+    docker stop ${cluster_name} ;
+  fi
 }
 
 # Remove a local kind cluster
 #   args:
 #     (1) cluster name
+#     (2) docker network
 function remove_kind_cluster {
   [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || cluster_name="${1}" ;
-  echo "WIP kind"
+  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return || network_name="${2}" ;
+  if $(kind get clusters | grep "${cluster_name}" &>/dev/null) ; then
+    echo "Going to remove kind cluster '${cluster_name}'"
+    docker rename "${cluster_name}" "${cluster_name}-control-plane" ;
+    kubectl config rename-context "${cluster_name}" "kind-${cluster_name}" ;
+    kind delete cluster --name "${cluster_name}" ;
+    echo "Going to remove docker network '${network_name}'"
+    docker network rm ${network_name} ;
+  fi
 }
 
 # Start a local minikube cluster
@@ -156,9 +199,9 @@ function start_minikube_cluster {
   [[ -z "${2}" ]] && echo "Please provide k8s version as 2nd argument" && return || k8s_version="${2}" ;
   [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return || network_name="${3}" ;
   [[ -z "${3}" ]] && echo "Please provide docker network subnet as 4th argument" && return || network_subnet="${4}" ;
-  if minikube --profile ${cluster_name} status 2>/dev/null | grep "host:" | grep "Running" &>/dev/null ; then
+  if $(minikube --profile ${cluster_name} status 2>/dev/null | grep "host:" | grep "Running" &>/dev/null) ; then
     echo "Minikube cluster profile '${cluster_name}' already running"
-  elif minikube --profile ${cluster_name} status 2>/dev/null | grep "host:" | grep "Stopped" &>/dev/null ; then
+  elif $(minikube --profile ${cluster_name} status 2>/dev/null | grep "host:" | grep "Stopped" &>/dev/null) ; then
     echo "Restarting minikube cluster profile '${cluster_name}'"
     minikube start --profile ${cluster_name} ;
   else
@@ -176,7 +219,7 @@ function start_minikube_cluster {
 #     (1) cluster name
 function stop_minikube_cluster {
   [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || cluster_name="${1}" ;
-  if minikube --profile ${cluster_name} status 2>/dev/null | grep "host:" | grep "Running" &>/dev/null ; then
+  if $(minikube --profile ${cluster_name} status 2>/dev/null | grep "host:" | grep "Running" &>/dev/null) ; then
     echo "Going to stop minikube cluster in minikube profile '${cluster_name}'"
     minikube stop --profile ${cluster_name} 2>/dev/null ;
   fi
@@ -185,9 +228,10 @@ function stop_minikube_cluster {
 # Remove a local minikube cluster
 #   args:
 #     (1) cluster name
+#     (2) docker network (not needed as minikube will clean-up)
 function remove_minikube_cluster {
   [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || cluster_name="${1}" ;
-  if minikube profile list --light=true 2>/dev/null | grep ${cluster_name} &>/dev/null ; then
+  if $(minikube profile list --light=true 2>/dev/null | grep ${cluster_name} &>/dev/null) ; then
     echo "Going to remove minikube cluster in minikube profile '${cluster_name}'"
     minikube delete --profile ${cluster_name} 2>/dev/null ;
   fi
@@ -210,11 +254,9 @@ function start_cluster {
   echo "Going to start ${K8S_LOCAL_PROVIDER} based kubernetes cluster '${cluster_name}'"
   case ${K8S_LOCAL_PROVIDER} in
     "k3s")
-      start_docker_network "${network_name}" "${network_subnet}"
       start_k3s_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
       ;;
     "kind")
-      start_docker_network "${network_name}" "${network_subnet}"
       start_kind_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
       ;;
     "minikube")
@@ -258,13 +300,13 @@ function remove_cluster {
   echo "Going to remove ${K8S_LOCAL_PROVIDER} based kubernetes cluster '${cluster_name}'"
   case ${K8S_LOCAL_PROVIDER} in
     "k3s")
-      remove_k3s_cluster "${cluster_name}" ;
+      remove_k3s_cluster "${cluster_name}" "${network_name}" ;
       ;;
     "kind")
-      remove_kind_cluster "${cluster_name}" ;
+      remove_kind_cluster "${cluster_name}" "${network_name}" ;
       ;;
     "minikube")
-      remove_minikube_cluster "${cluster_name}" ;
+      remove_minikube_cluster "${cluster_name}" "${network_name}" ;
       ;;
   esac
 }
