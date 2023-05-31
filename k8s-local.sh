@@ -131,7 +131,7 @@ function start_k3s_cluster {
     kubectl config rename-context "k3d-${cluster_name}" "${cluster_name}" ;
     kubeapi_address=$(get_docker_container_ip "${cluster_name}" "${network_name}") ;
     echo "kubeapi_address == ${kubeapi_address}"
-    kubectl config set-cluster "kind-${cluster_name}" --server="https://${kubeapi_address}:6443" ;
+    kubectl config set-cluster "k3d-${cluster_name}" --server="https://${kubeapi_address}:6443" ;
   fi
 }
 
