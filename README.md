@@ -1,6 +1,6 @@
 # k8s-local
 
-The goal of this bash wrapped functions is to provide a unified interface for local cluster
+The goal of this bash wrapper functions is to provide a unified interface for local kubernetes multi-cluster
 management.
 
 ## minikube provider
