@@ -75,13 +75,13 @@ kube-system   metrics-server-5f9f776df5-zzdtp           1/1     Running   0     
 NAMESPACE     NAME                                      READY   STATUS    RESTARTS   AGE
 kube-system   coredns-597584b69b-sqf5n                  1/1     Running   0          24s
 kube-system   local-path-provisioner-79f67d76f8-7x7qg   1/1     Running   0          24s
-kube-system   metrics-server-5f9f776df5-rjkcp           0/1     Running   0          24s
+kube-system   metrics-server-5f9f776df5-rjkcp           1/1     Running   0          24s
 
 # kubectl --context test3 get pods -A
 NAMESPACE     NAME                                      READY   STATUS    RESTARTS   AGE
 kube-system   coredns-597584b69b-nm7rd                  1/1     Running   0          16s
 kube-system   local-path-provisioner-79f67d76f8-9pnjt   1/1     Running   0          16s
-kube-system   metrics-server-5f9f776df5-mwdmf           0/1     Running   0          16s
+kube-system   metrics-server-5f9f776df5-mwdmf           1/1     Running   0          16s
 
 # docker ps
 CONTAINER ID   IMAGE                      COMMAND                  CREATED              STATUS              PORTS                     NAMES
