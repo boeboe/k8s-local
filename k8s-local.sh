@@ -70,6 +70,17 @@ function get_docker_container_ip {
   docker container inspect --format "{{(index .NetworkSettings.Networks \"${network_name}\").IPAddress}}" "${container_name}" 
 }
 
+# Get kubernetes cluster apiserver address
+#   args:
+#     (1) cluster name
+#     (2) docker network name
+function get_apiserver_url {
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || cluster_name="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return || network_name="${2}" ;
+  kubeapi_ip=$(get_docker_container_ip "${cluster_name}" "${network_name}") ;
+  echo "https://${kubeapi_ip}:6443" ;
+}
+
 # Start a docker network
 #   args:
 #     (1) network name
@@ -129,9 +140,8 @@ function start_k3s_cluster {
     k3d cluster create --network "${network_name}" --servers 1 --agents 0 --image ${image} --no-lb "${cluster_name}" --k3s-arg "--disable=traefik@server:0" ;
     docker rename "k3d-${cluster_name}-server-0" "${cluster_name}" ;
     kubectl config rename-context "k3d-${cluster_name}" "${cluster_name}" ;
-    kubeapi_address=$(get_docker_container_ip "${cluster_name}" "${network_name}") ;
-    echo "kubeapi_address == ${kubeapi_address}"
-    kubectl config set-cluster "k3d-${cluster_name}" --server="https://${kubeapi_address}:6443" ;
+    apiserver_address=$(get_apiserver_url "${cluster_name}" "${network_name}") ;
+    kubectl config set-cluster "k3d-${cluster_name}" --server="${apiserver_address}" ;
   fi
 }
 
@@ -193,8 +203,8 @@ function start_kind_cluster {
     KIND_EXPERIMENTAL_DOCKER_NETWORK=${network_name} kind create cluster --name "${cluster_name}" --image "${image}" ;
     docker rename "${cluster_name}-control-plane" "${cluster_name}" ;
     kubectl config rename-context "kind-${cluster_name}" "${cluster_name}" ;
-    kubeapi_address=$(get_docker_container_ip "${cluster_name}" "${network_name}") ;
-    kubectl config set-cluster "kind-${cluster_name}" --server="https://${kubeapi_address}:6443" ;
+    apiserver_address=$(get_apiserver_url "${cluster_name}" "${network_name}") ;
+    kubectl config set-cluster "kind-${cluster_name}" --server="${apiserver_address}" ;
   fi
 }
 
@@ -249,7 +259,7 @@ function start_minikube_cluster {
     echo "  network_name: ${network_name}"
     echo "  network_subnet: ${network_subnet}"
     start_docker_network "${network_name}" "${network_subnet}" ;
-    minikube start --driver=docker --kubernetes-version=v${k8s_version} --profile=${cluster_name} --network=${network_name} --subnet=${network_subnet} ;
+    minikube start --driver=docker --kubernetes-version=v${k8s_version} --profile=${cluster_name} --network=${network_name} --subnet=${network_subnet} --apiserver-port=6443 ;
   fi
 }
 
@@ -352,4 +362,3 @@ function remove_cluster {
       ;;
   esac
 }
-
