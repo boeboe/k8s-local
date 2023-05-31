@@ -125,13 +125,8 @@ function start_k3s_cluster {
     echo "  network_subnet: ${network_subnet}"
 
     start_docker_network "${network_name}" "${network_subnet}" ;
-    docker run \
-      --privileged \
-      --publish 6443:6443 \
-      --name "${cluster_name}" \
-      --network ${network_name} \
-      ${image} -- \
-      server --disable traefik ;
+    echo k3d cluster create --network "${network_name}" --servers 1 --image ${image} "${cluster_name}"
+    k3d cluster create --network "${network_name}" --servers 1 --image ${image} "${cluster_name}" ;
 
     # docker rename "${cluster_name}-control-plane" "${cluster_name}" ;
     # kubectl config rename-context "kind-${cluster_name}" "${cluster_name}" ;
