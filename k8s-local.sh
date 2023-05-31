@@ -127,15 +127,12 @@ function start_k3s_cluster {
     start_docker_network "${network_name}" "${network_subnet}" ;
     echo k3d cluster create --network "${network_name}" --servers 1 --image ${image} "${cluster_name}"
     k3d cluster create --network "${network_name}" --servers 1 --agents 0 --image ${image} --no-lb "${cluster_name}" ;
-
-    # docker rename "${cluster_name}-control-plane" "${cluster_name}" ;
-    # kubectl config rename-context "kind-${cluster_name}" "${cluster_name}" ;
+    docker rename "k3d-${cluster_name}-server-0" "${cluster_name}" ;
+    kubectl config rename-context "k3d-${cluster_name}" "${cluster_name}" ;
     kubeapi_address=$(get_docker_container_ip "${cluster_name}" "${network_name}") ;
     echo "kubeapi_address == ${kubeapi_address}"
-    # kubectl config set-cluster "kind-${cluster_name}" --server="https://${kubeapi_address}:6443" ;
+    kubectl config set-cluster "kind-${cluster_name}" --server="https://${kubeapi_address}:6443" ;
   fi
-
-  echo "WIP k3s"
 }
 
 # Stop a local k3s cluster
@@ -143,15 +140,27 @@ function start_k3s_cluster {
 #     (1) cluster name
 function stop_k3s_cluster {
   [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || cluster_name="${1}" ;
-  echo "WIP k3s"
+  if $(docker inspect -f '{{.State.Status}}' ${cluster_name} | grep "running" &>/dev/null) ; then
+    echo "Going to stop k3s cluster '${cluster_name}'"
+    k3d cluster stop ${cluster_name} ;
+  fi
 }
 
 # Remove a local k3s cluster
 #   args:
 #     (1) cluster name
+#     (2) docker network
 function remove_k3s_cluster {
   [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || cluster_name="${1}" ;
-  echo "WIP k3s"
+  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return || network_name="${2}" ;
+  if $(kind get clusters | grep "${cluster_name}" &>/dev/null) ; then
+    echo "Going to remove k3s cluster '${cluster_name}'"
+    docker rename "${cluster_name}" "k3d-${cluster_name}-server-0" ;
+    kubectl config rename-context "${cluster_name}" "k3d-${cluster_name}" ;
+    k3d cluster delete "${cluster_name}" ;
+    echo "Going to remove docker network '${network_name}'"
+    docker network rm ${network_name} ;
+  fi
 }
 
 # Start a local kind cluster
