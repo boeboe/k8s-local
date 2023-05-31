@@ -153,7 +153,7 @@ function stop_k3s_cluster {
 function remove_k3s_cluster {
   [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || cluster_name="${1}" ;
   [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return || network_name="${2}" ;
-  if $(kind get clusters | grep "${cluster_name}" &>/dev/null) ; then
+  if $(k3d cluster list | grep "${cluster_name}" &>/dev/null) ; then
     echo "Going to remove k3s cluster '${cluster_name}'"
     docker rename "${cluster_name}" "k3d-${cluster_name}-server-0" ;
     kubectl config rename-context "${cluster_name}" "k3d-${cluster_name}" ;
