@@ -126,7 +126,7 @@ function start_k3s_cluster {
 
     start_docker_network "${network_name}" "${network_subnet}" ;
     echo k3d cluster create --network "${network_name}" --servers 1 --image ${image} "${cluster_name}"
-    k3d cluster create --network "${network_name}" --servers 1 --image ${image} "${cluster_name}" ;
+    k3d cluster create --network "${network_name}" --servers 1 --agents 0 --image ${image} --no-lb "${cluster_name}" ;
 
     # docker rename "${cluster_name}-control-plane" "${cluster_name}" ;
     # kubectl config rename-context "kind-${cluster_name}" "${cluster_name}" ;

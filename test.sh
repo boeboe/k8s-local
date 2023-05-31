@@ -17,8 +17,9 @@ start_cluster "test1" "1.25.8" "test1";
 # remove_cluster "testbis" "testbis";
 # sleep 30 ;
 # remove_cluster "test" "test";
-echo "DONE" ; sleep 60 ;
-remove_cluster "test1" "test1";
+echo "DONE" ;
+# sleep 60 ;
+# remove_cluster "test1" "test1";
 # remove_cluster "test2" "test2";
 
 # K8S_LOCAL_PROVIDER=k3s start_cluster ;
