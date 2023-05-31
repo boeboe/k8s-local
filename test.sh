@@ -18,7 +18,7 @@ start_cluster "test2" "1.25.8" "test2" "192.168.200.0/24";
 # sleep 30 ;
 # remove_cluster "test" "test";
 echo "DONE" ;
-sleep 60 ;
+sleep 120 ;
 remove_cluster "test1" "test1";
 remove_cluster "test2" "test2";
 
