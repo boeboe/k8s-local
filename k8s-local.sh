@@ -136,7 +136,6 @@ function start_k3s_cluster {
     echo "  network_subnet: ${network_subnet}"
 
     start_docker_network "${network_name}" "${network_subnet}" ;
-    echo k3d cluster create --network "${network_name}" --servers 1 --image ${image} "${cluster_name}"
     k3d cluster create --network "${network_name}" --servers 1 --agents 0 --image ${image} --no-lb "${cluster_name}" --k3s-arg "--disable=traefik@server:0" ;
     docker rename "k3d-${cluster_name}-server-0" "${cluster_name}" ;
     kubectl config rename-context "k3d-${cluster_name}" "${cluster_name}" ;
