@@ -258,7 +258,8 @@ function start_minikube_cluster {
     echo "  network_name: ${network_name}"
     echo "  network_subnet: ${network_subnet}"
     start_docker_network "${network_name}" "${network_subnet}" ;
-    minikube start --driver=docker --kubernetes-version=v${k8s_version} --profile=${cluster_name} --network=${network_name} --subnet=${network_subnet} --apiserver-port=6443 ;
+    minikube --profile=${cluster_name} --driver=docker --kubernetes-version=v${k8s_version} --network=${network_name} --subnet=${network_subnet} --apiserver-port=6443 start ;
+    minikube --profile=${cluster_name} addons enable metrics-server 
   fi
 }
 
