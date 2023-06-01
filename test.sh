@@ -17,11 +17,14 @@ if ${TEST_MINIKUBE} ; then
   start_cluster "test1" "1.25.8" "test1";
   start_cluster "test2" "1.25.7" "test2" "192.168.200.0/24";
   start_cluster "test3" "1.25.6" "test3";
-  echo "DONE" ; read -p "Press enter to continue" ;
+  wait_cluster_ready "test1";
+  wait_cluster_ready "test2";
+  wait_cluster_ready "test3";
+  echo "Starting minikube clusters: DONE" ; read -p "Press enter to continue" ;
   remove_cluster "test1" "test1";
   remove_cluster "test2" "test2";
   remove_cluster "test3" "test3";
-  echo "DONE" ; read -p "Press enter to continue" ;
+  echo "Removing minikube clusters: DONE" ; read -p "Press enter to continue" ;
 fi
 
 if ${TEST_K3S} ; then
@@ -30,11 +33,14 @@ if ${TEST_K3S} ; then
   start_cluster "test1" "1.25.8" "test1";
   start_cluster "test2" "1.25.7" "test2" "192.168.200.0/24";
   start_cluster "test3" "1.25.6" "test3";
-  echo "DONE" ; read -p "Press enter to continue" ;
+  wait_cluster_ready "test1";
+  wait_cluster_ready "test2";
+  wait_cluster_ready "test3";
+  echo "Starting k3s clusters: DONE" ; read -p "Press enter to continue" ;
   remove_cluster "test1" "test1";
   remove_cluster "test2" "test2";
   remove_cluster "test3" "test3";
-  echo "DONE" ; read -p "Press enter to continue" ;
+  echo "Removing k3s clusters: DONE" ; read -p "Press enter to continue" ;
 fi
 
 if ${TEST_KIND} ; then
@@ -43,9 +49,12 @@ if ${TEST_KIND} ; then
   start_cluster "test1" "1.25.8" "test1";
   start_cluster "test2" "1.25.3" "test2" "192.168.200.0/24";
   start_cluster "test3" "1.25.2" "test3";
-  echo "DONE" ; read -p "Press enter to continue" ;
+  wait_cluster_ready "test1";
+  wait_cluster_ready "test2";
+  wait_cluster_ready "test3";
+  echo "Starting kind clusters: DONE" ; read -p "Press enter to continue" ;
   remove_cluster "test1" "test1";
   remove_cluster "test2" "test2";
   remove_cluster "test3" "test3";
-  echo "DONE" ; read -p "Press enter to continue" ;
+  echo "Removing kind clusters: DONE" ; read -p "Press enter to continue" ;
 fi

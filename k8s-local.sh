@@ -181,7 +181,7 @@ function start_k3s_cluster {
   fi
 }
 
-# Wait for all pods in local k3s cluster to be ready
+# Wait for all expected pods in local k3s cluster to be ready
 #   args:
 #     (1) cluster name
 function wait_k3s_cluster_ready {
@@ -270,7 +270,7 @@ function start_kind_cluster {
   fi
 }
 
-# Wait for all pods in local kind cluster to be ready
+# Wait for all expected pods in local kind cluster to be ready
 #   args:
 #     (1) cluster name
 function wait_kind_cluster_ready {
@@ -363,7 +363,7 @@ function start_minikube_cluster {
   fi
 }
 
-# Wait for all pods in local minikube cluster to be ready
+# Wait for all expected pods in local minikube cluster to be ready
 #   args:
 #     (1) cluster name
 function wait_minikube_cluster_ready {
@@ -437,14 +437,33 @@ function start_cluster {
   case ${K8S_LOCAL_PROVIDER} in
     "k3s")
       start_k3s_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
-      wait_k3s_cluster_ready "${cluster_name}" ;
       ;;
     "kind")
       start_kind_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
-      wait_kind_cluster_ready "${cluster_name}" ;
       ;;
     "minikube")
       start_minikube_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
+      ;;
+  esac
+}
+
+# Wait for all expected pods in local kubernetes cluster to be ready
+#   args:
+#     (1) cluster name
+function wait_cluster_ready {
+  precheck ;
+
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
+
+  echo "Going to start ${K8S_LOCAL_PROVIDER} based kubernetes cluster '${cluster_name}'" ;
+  case ${K8S_LOCAL_PROVIDER} in
+    "k3s")
+      wait_k3s_cluster_ready "${cluster_name}" ;
+      ;;
+    "kind")
+      wait_kind_cluster_ready "${cluster_name}" ;
+      ;;
+    "minikube")
       wait_minikube_cluster_ready "${cluster_name}" ;
       ;;
   esac

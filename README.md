@@ -3,74 +3,6 @@
 The goal of this bash wrapper functions is to provide a unified interface for local kubernetes multi-cluster
 management.
 
-## minikube provider
-
-```console
-# kubectl get pods -A --context test1
-NAMESPACE        NAME                              READY   STATUS    RESTARTS   AGE
-kube-system      coredns-565d847f94-qxhnk          1/1     Running   0          6m55s
-kube-system      etcd-test1                        1/1     Running   0          7m7s
-kube-system      kube-apiserver-test1              1/1     Running   0          7m9s
-kube-system      kube-controller-manager-test1     1/1     Running   0          7m8s
-kube-system      kube-proxy-p2s2m                  1/1     Running   0          6m55s
-kube-system      kube-scheduler-test1              1/1     Running   0          7m8s
-kube-system      metrics-server-7bdcf8ff9d-z2cc2   1/1     Running   0          6m55s
-kube-system      storage-provisioner               1/1     Running   0          7m7s
-metallb-system   controller-6658b8446c-5jrgf       1/1     Running   0          6m55s
-metallb-system   speaker-9ltxf                     1/1     Running   0          6m55s
-
-# kubectl get pods -A --context test2
-NAMESPACE        NAME                              READY   STATUS    RESTARTS   AGE
-kube-system      coredns-565d847f94-lzl44          1/1     Running   0          6m37s
-kube-system      etcd-test2                        1/1     Running   0          6m53s
-kube-system      kube-apiserver-test2              1/1     Running   0          6m53s
-kube-system      kube-controller-manager-test2     1/1     Running   0          6m51s
-kube-system      kube-proxy-6n7bz                  1/1     Running   0          6m37s
-kube-system      kube-scheduler-test2              1/1     Running   0          6m53s
-kube-system      metrics-server-7bdcf8ff9d-84s2g   1/1     Running   0          6m37s
-kube-system      storage-provisioner               1/1     Running   0          6m51s
-metallb-system   controller-6658b8446c-t5jxg       1/1     Running   0          6m37s
-metallb-system   speaker-mqctj                     1/1     Running   0          6m37s
-
-# kubectl get pods -A --context test3
-NAMESPACE        NAME                              READY   STATUS    RESTARTS   AGE
-kube-system      coredns-565d847f94-btv6s          1/1     Running   0          6m20s
-kube-system      etcd-test3                        1/1     Running   0          6m33s
-kube-system      kube-apiserver-test3              1/1     Running   0          6m35s
-kube-system      kube-controller-manager-test3     1/1     Running   0          6m35s
-kube-system      kube-proxy-d5b4g                  1/1     Running   0          6m20s
-kube-system      kube-scheduler-test3              1/1     Running   0          6m35s
-kube-system      metrics-server-7bdcf8ff9d-t6msd   1/1     Running   0          6m20s
-kube-system      storage-provisioner               1/1     Running   0          6m33s
-metallb-system   controller-6658b8446c-4qz4p       1/1     Running   0          6m20s
-metallb-system   speaker-npf5d                     1/1     Running   0          6m20s
-
-# docker ps
-CONTAINER ID   IMAGE                                 COMMAND                  CREATED         STATUS         PORTS                                                                                                                                  NAMES
-839a1f7a99ad   gcr.io/k8s-minikube/kicbase:v0.0.39   "/usr/local/bin/entr…"   4 minutes ago   Up 4 minutes   127.0.0.1:49362->22/tcp, 127.0.0.1:49361->2376/tcp, 127.0.0.1:49360->5000/tcp, 127.0.0.1:49359->6443/tcp, 127.0.0.1:49358->32443/tcp   test1
-076c57d63253   gcr.io/k8s-minikube/kicbase:v0.0.39   "/usr/local/bin/entr…"   4 minutes ago   Up 4 minutes   127.0.0.1:49367->22/tcp, 127.0.0.1:49366->2376/tcp, 127.0.0.1:49365->5000/tcp, 127.0.0.1:49364->6443/tcp, 127.0.0.1:49363->32443/tcp   test2
-f15329ee5035   gcr.io/k8s-minikube/kicbase:v0.0.39   "/usr/local/bin/entr…"   3 minutes ago   Up 3 minutes   127.0.0.1:49372->22/tcp, 127.0.0.1:49371->2376/tcp, 127.0.0.1:49370->5000/tcp, 127.0.0.1:49369->6443/tcp, 127.0.0.1:49368->32443/tcp   test3
-
-# docker network ls
-NETWORK ID     NAME      DRIVER    SCOPE
-8608956bdb6b   bridge    bridge    local
-2eb5e4626720   host      host      local
-bac9c2cd6047   none      null      local
-7d3d067cbfaf   test1     bridge    local
-ce2f10f0f6ed   test2     bridge    local
-ecb9cb661549   test3     bridge    local
-
-# cat ~/.kube/config | grep server -A 1
-    server: https://192.168.49.2:6443
-  name: test1
---
-    server: https://192.168.200.2:6443
-  name: test2
---
-    server: https://192.168.50.2:6443
-  name: test3
-```
-
 ## k3s provider
 
 ```console
@@ -196,4 +128,72 @@ bac9c2cd6047   none      null      local
 --
     server: https://192.168.50.2:6443
   name: kind-test3
+```
+
+## minikube provider
+
+```console
+# kubectl get pods -A --context test1
+NAMESPACE        NAME                              READY   STATUS    RESTARTS   AGE
+kube-system      coredns-565d847f94-qxhnk          1/1     Running   0          6m55s
+kube-system      etcd-test1                        1/1     Running   0          7m7s
+kube-system      kube-apiserver-test1              1/1     Running   0          7m9s
+kube-system      kube-controller-manager-test1     1/1     Running   0          7m8s
+kube-system      kube-proxy-p2s2m                  1/1     Running   0          6m55s
+kube-system      kube-scheduler-test1              1/1     Running   0          7m8s
+kube-system      metrics-server-7bdcf8ff9d-z2cc2   1/1     Running   0          6m55s
+kube-system      storage-provisioner               1/1     Running   0          7m7s
+metallb-system   controller-6658b8446c-5jrgf       1/1     Running   0          6m55s
+metallb-system   speaker-9ltxf                     1/1     Running   0          6m55s
+
+# kubectl get pods -A --context test2
+NAMESPACE        NAME                              READY   STATUS    RESTARTS   AGE
+kube-system      coredns-565d847f94-lzl44          1/1     Running   0          6m37s
+kube-system      etcd-test2                        1/1     Running   0          6m53s
+kube-system      kube-apiserver-test2              1/1     Running   0          6m53s
+kube-system      kube-controller-manager-test2     1/1     Running   0          6m51s
+kube-system      kube-proxy-6n7bz                  1/1     Running   0          6m37s
+kube-system      kube-scheduler-test2              1/1     Running   0          6m53s
+kube-system      metrics-server-7bdcf8ff9d-84s2g   1/1     Running   0          6m37s
+kube-system      storage-provisioner               1/1     Running   0          6m51s
+metallb-system   controller-6658b8446c-t5jxg       1/1     Running   0          6m37s
+metallb-system   speaker-mqctj                     1/1     Running   0          6m37s
+
+# kubectl get pods -A --context test3
+NAMESPACE        NAME                              READY   STATUS    RESTARTS   AGE
+kube-system      coredns-565d847f94-btv6s          1/1     Running   0          6m20s
+kube-system      etcd-test3                        1/1     Running   0          6m33s
+kube-system      kube-apiserver-test3              1/1     Running   0          6m35s
+kube-system      kube-controller-manager-test3     1/1     Running   0          6m35s
+kube-system      kube-proxy-d5b4g                  1/1     Running   0          6m20s
+kube-system      kube-scheduler-test3              1/1     Running   0          6m35s
+kube-system      metrics-server-7bdcf8ff9d-t6msd   1/1     Running   0          6m20s
+kube-system      storage-provisioner               1/1     Running   0          6m33s
+metallb-system   controller-6658b8446c-4qz4p       1/1     Running   0          6m20s
+metallb-system   speaker-npf5d                     1/1     Running   0          6m20s
+
+# docker ps
+CONTAINER ID   IMAGE                                 COMMAND                  CREATED         STATUS         PORTS                                                                                                                                  NAMES
+839a1f7a99ad   gcr.io/k8s-minikube/kicbase:v0.0.39   "/usr/local/bin/entr…"   4 minutes ago   Up 4 minutes   127.0.0.1:49362->22/tcp, 127.0.0.1:49361->2376/tcp, 127.0.0.1:49360->5000/tcp, 127.0.0.1:49359->6443/tcp, 127.0.0.1:49358->32443/tcp   test1
+076c57d63253   gcr.io/k8s-minikube/kicbase:v0.0.39   "/usr/local/bin/entr…"   4 minutes ago   Up 4 minutes   127.0.0.1:49367->22/tcp, 127.0.0.1:49366->2376/tcp, 127.0.0.1:49365->5000/tcp, 127.0.0.1:49364->6443/tcp, 127.0.0.1:49363->32443/tcp   test2
+f15329ee5035   gcr.io/k8s-minikube/kicbase:v0.0.39   "/usr/local/bin/entr…"   3 minutes ago   Up 3 minutes   127.0.0.1:49372->22/tcp, 127.0.0.1:49371->2376/tcp, 127.0.0.1:49370->5000/tcp, 127.0.0.1:49369->6443/tcp, 127.0.0.1:49368->32443/tcp   test3
+
+# docker network ls
+NETWORK ID     NAME      DRIVER    SCOPE
+8608956bdb6b   bridge    bridge    local
+2eb5e4626720   host      host      local
+bac9c2cd6047   none      null      local
+7d3d067cbfaf   test1     bridge    local
+ce2f10f0f6ed   test2     bridge    local
+ecb9cb661549   test3     bridge    local
+
+# cat ~/.kube/config | grep server -A 1
+    server: https://192.168.49.2:6443
+  name: test1
+--
+    server: https://192.168.200.2:6443
+  name: test2
+--
+    server: https://192.168.50.2:6443
+  name: test3
 ```
