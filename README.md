@@ -6,35 +6,44 @@ management.
 ## minikube provider
 
 ```console
-# kubectl --context test1 get pods -A
-NAMESPACE     NAME                            READY   STATUS    RESTARTS       AGE
-kube-system   coredns-565d847f94-zw2dm        1/1     Running   0              2m27s
-kube-system   etcd-test1                      1/1     Running   0              2m40s
-kube-system   kube-apiserver-test1            1/1     Running   0              2m40s
-kube-system   kube-controller-manager-test1   1/1     Running   0              2m40s
-kube-system   kube-proxy-f785p                1/1     Running   0              2m27s
-kube-system   kube-scheduler-test1            1/1     Running   0              2m41s
-kube-system   storage-provisioner             1/1     Running   1 (117s ago)   2m40s
+# kubectl get pods -A --context test1
+NAMESPACE        NAME                              READY   STATUS    RESTARTS   AGE
+kube-system      coredns-565d847f94-qxhnk          1/1     Running   0          6m55s
+kube-system      etcd-test1                        1/1     Running   0          7m7s
+kube-system      kube-apiserver-test1              1/1     Running   0          7m9s
+kube-system      kube-controller-manager-test1     1/1     Running   0          7m8s
+kube-system      kube-proxy-p2s2m                  1/1     Running   0          6m55s
+kube-system      kube-scheduler-test1              1/1     Running   0          7m8s
+kube-system      metrics-server-7bdcf8ff9d-z2cc2   1/1     Running   0          6m55s
+kube-system      storage-provisioner               1/1     Running   0          7m7s
+metallb-system   controller-6658b8446c-5jrgf       1/1     Running   0          6m55s
+metallb-system   speaker-9ltxf                     1/1     Running   0          6m55s
 
-# kubectl --context test2 get pods -A
-NAMESPACE     NAME                            READY   STATUS    RESTARTS      AGE
-kube-system   coredns-565d847f94-8r7lz        1/1     Running   0             98s
-kube-system   etcd-test2                      1/1     Running   0             110s
-kube-system   kube-apiserver-test2            1/1     Running   0             112s
-kube-system   kube-controller-manager-test2   1/1     Running   0             112s
-kube-system   kube-proxy-b49tk                1/1     Running   0             99s
-kube-system   kube-scheduler-test2            1/1     Running   0             112s
-kube-system   storage-provisioner             1/1     Running   1 (67s ago)   110s
+# kubectl get pods -A --context test2
+NAMESPACE        NAME                              READY   STATUS    RESTARTS   AGE
+kube-system      coredns-565d847f94-lzl44          1/1     Running   0          6m37s
+kube-system      etcd-test2                        1/1     Running   0          6m53s
+kube-system      kube-apiserver-test2              1/1     Running   0          6m53s
+kube-system      kube-controller-manager-test2     1/1     Running   0          6m51s
+kube-system      kube-proxy-6n7bz                  1/1     Running   0          6m37s
+kube-system      kube-scheduler-test2              1/1     Running   0          6m53s
+kube-system      metrics-server-7bdcf8ff9d-84s2g   1/1     Running   0          6m37s
+kube-system      storage-provisioner               1/1     Running   0          6m51s
+metallb-system   controller-6658b8446c-t5jxg       1/1     Running   0          6m37s
+metallb-system   speaker-mqctj                     1/1     Running   0          6m37s
 
-# kubectl --context test3 get pods -A
-NAMESPACE     NAME                            READY   STATUS    RESTARTS      AGE
-kube-system   coredns-565d847f94-mr8x7        1/1     Running   0             64s
-kube-system   etcd-test3                      1/1     Running   0             78s
-kube-system   kube-apiserver-test3            1/1     Running   0             79s
-kube-system   kube-controller-manager-test3   1/1     Running   0             77s
-kube-system   kube-proxy-x62g9                1/1     Running   0             64s
-kube-system   kube-scheduler-test3            1/1     Running   0             79s
-kube-system   storage-provisioner             1/1     Running   1 (34s ago)   76s
+# kubectl get pods -A --context test3
+NAMESPACE        NAME                              READY   STATUS    RESTARTS   AGE
+kube-system      coredns-565d847f94-btv6s          1/1     Running   0          6m20s
+kube-system      etcd-test3                        1/1     Running   0          6m33s
+kube-system      kube-apiserver-test3              1/1     Running   0          6m35s
+kube-system      kube-controller-manager-test3     1/1     Running   0          6m35s
+kube-system      kube-proxy-d5b4g                  1/1     Running   0          6m20s
+kube-system      kube-scheduler-test3              1/1     Running   0          6m35s
+kube-system      metrics-server-7bdcf8ff9d-t6msd   1/1     Running   0          6m20s
+kube-system      storage-provisioner               1/1     Running   0          6m33s
+metallb-system   controller-6658b8446c-4qz4p       1/1     Running   0          6m20s
+metallb-system   speaker-npf5d                     1/1     Running   0          6m20s
 
 # docker ps
 CONTAINER ID   IMAGE                                 COMMAND                  CREATED         STATUS         PORTS                                                                                                                                  NAMES
@@ -65,23 +74,29 @@ ecb9cb661549   test3     bridge    local
 ## k3s provider
 
 ```console
-# kubectl --context test1 get pods -A
-NAMESPACE     NAME                                      READY   STATUS    RESTARTS   AGE
-kube-system   local-path-provisioner-79f67d76f8-v6x27   1/1     Running   0          32s
-kube-system   coredns-597584b69b-59mzs                  1/1     Running   0          32s
-kube-system   metrics-server-5f9f776df5-zzdtp           1/1     Running   0          32s
+# kubectl get pods -A --context test1
+NAMESPACE        NAME                                      READY   STATUS    RESTARTS   AGE
+kube-system      coredns-597584b69b-t2t5f                  1/1     Running   0          38s
+kube-system      local-path-provisioner-79f67d76f8-wdn65   1/1     Running   0          38s
+kube-system      metrics-server-5f9f776df5-n6tvd           1/1     Running   0          38s
+metallb-system   controller-6658b8446c-jtzdv               1/1     Running   0          38s
+metallb-system   speaker-jb5b8                             1/1     Running   0          38s
 
-# kubectl --context test2 get pods -A
-NAMESPACE     NAME                                      READY   STATUS    RESTARTS   AGE
-kube-system   coredns-597584b69b-sqf5n                  1/1     Running   0          24s
-kube-system   local-path-provisioner-79f67d76f8-7x7qg   1/1     Running   0          24s
-kube-system   metrics-server-5f9f776df5-rjkcp           1/1     Running   0          24s
+# kubectl get pods -A --context test2
+NAMESPACE        NAME                                      READY   STATUS    RESTARTS   AGE
+kube-system      coredns-597584b69b-55dnq                  1/1     Running   0          35s
+kube-system      local-path-provisioner-79f67d76f8-zs79f   1/1     Running   0          35s
+kube-system      metrics-server-5f9f776df5-x47q4           1/1     Running   0          35s
+metallb-system   speaker-qmlkj                             1/1     Running   0          35s
+metallb-system   controller-6658b8446c-4hw7v               1/1     Running   0          35s
 
-# kubectl --context test3 get pods -A
-NAMESPACE     NAME                                      READY   STATUS    RESTARTS   AGE
-kube-system   coredns-597584b69b-nm7rd                  1/1     Running   0          16s
-kube-system   local-path-provisioner-79f67d76f8-9pnjt   1/1     Running   0          16s
-kube-system   metrics-server-5f9f776df5-mwdmf           1/1     Running   0          16s
+# kubectl get pods -A --context test3
+NAMESPACE        NAME                                      READY   STATUS    RESTARTS   AGE
+kube-system      coredns-597584b69b-k2c8c                  1/1     Running   0          30s
+kube-system      local-path-provisioner-79f67d76f8-wxtcv   1/1     Running   0          30s
+kube-system      metrics-server-5f9f776df5-f5nf2           1/1     Running   0          30s
+metallb-system   speaker-9xf65                             1/1     Running   0          30s
+metallb-system   controller-6658b8446c-2xcrq               1/1     Running   0          30s
 
 # docker ps
 CONTAINER ID   IMAGE                      COMMAND                  CREATED              STATUS              PORTS                     NAMES
@@ -111,43 +126,51 @@ bac9c2cd6047   none      null      local
 
 ## kind provider
 
-
 ```console
-# kubectl --context test1 get pods -A
+# kubectl get pods -A --context test1
 NAMESPACE            NAME                                          READY   STATUS    RESTARTS   AGE
-kube-system          coredns-565d847f94-s77pr                      1/1     Running   0          43s
-kube-system          coredns-565d847f94-sd7g7                      1/1     Running   0          43s
-kube-system          etcd-test1-control-plane                      1/1     Running   0          56s
-kube-system          kindnet-fm876                                 1/1     Running   0          43s
-kube-system          kube-apiserver-test1-control-plane            1/1     Running   0          58s
-kube-system          kube-controller-manager-test1-control-plane   1/1     Running   0          56s
-kube-system          kube-proxy-b7k98                              1/1     Running   0          43s
-kube-system          kube-scheduler-test1-control-plane            1/1     Running   0          56s
-local-path-storage   local-path-provisioner-86666ffff6-x7r87       1/1     Running   0          43s
+kube-system          coredns-565d847f94-46pnq                      1/1     Running   0          75s
+kube-system          coredns-565d847f94-vxv82                      1/1     Running   0          75s
+kube-system          etcd-test1-control-plane                      1/1     Running   0          90s
+kube-system          kindnet-xfjvb                                 1/1     Running   0          76s
+kube-system          kube-apiserver-test1-control-plane            1/1     Running   0          90s
+kube-system          kube-controller-manager-test1-control-plane   1/1     Running   0          90s
+kube-system          kube-proxy-6jl44                              1/1     Running   0          76s
+kube-system          kube-scheduler-test1-control-plane            1/1     Running   0          90s
+kube-system          metrics-server-cc57dff87-t2n88                1/1     Running   0          75s
+local-path-storage   local-path-provisioner-86666ffff6-rzvml       1/1     Running   0          75s
+metallb-system       controller-6658b8446c-6tprr                   1/1     Running   0          75s
+metallb-system       speaker-844ql                                 1/1     Running   0          70s
 
-# kubectl --context test2 get pods -A
+# kubectl get pods -A --context test2
 NAMESPACE            NAME                                          READY   STATUS    RESTARTS   AGE
-kube-system          coredns-565d847f94-69d4t                      1/1     Running   0          29s
-kube-system          coredns-565d847f94-scrzz                      1/1     Running   0          29s
-kube-system          etcd-test2-control-plane                      1/1     Running   0          43s
-kube-system          kindnet-gwxhd                                 1/1     Running   0          30s
-kube-system          kube-apiserver-test2-control-plane            1/1     Running   0          45s
-kube-system          kube-controller-manager-test2-control-plane   1/1     Running   0          43s
-kube-system          kube-proxy-jfn9d                              1/1     Running   0          30s
-kube-system          kube-scheduler-test2-control-plane            1/1     Running   0          43s
-local-path-storage   local-path-provisioner-684f458cdd-gqs7z       1/1     Running   0          29s
+kube-system          coredns-565d847f94-p7xmq                      1/1     Running   0          61s
+kube-system          coredns-565d847f94-xs5kq                      1/1     Running   0          61s
+kube-system          etcd-test2-control-plane                      1/1     Running   0          77s
+kube-system          kindnet-q746p                                 1/1     Running   0          62s
+kube-system          kube-apiserver-test2-control-plane            1/1     Running   0          76s
+kube-system          kube-controller-manager-test2-control-plane   1/1     Running   0          76s
+kube-system          kube-proxy-gnpsp                              1/1     Running   0          62s
+kube-system          kube-scheduler-test2-control-plane            1/1     Running   0          76s
+kube-system          metrics-server-cc57dff87-mj52h                1/1     Running   0          61s
+local-path-storage   local-path-provisioner-684f458cdd-8fqjm       1/1     Running   0          61s
+metallb-system       controller-6658b8446c-kcpqt                   1/1     Running   0          61s
+metallb-system       speaker-qm8d9                                 1/1     Running   0          56s
 
-# kubectl --context test3 get pods -A
+# kubectl get pods -A --context test3
 NAMESPACE            NAME                                          READY   STATUS    RESTARTS   AGE
-kube-system          coredns-565d847f94-866sn                      1/1     Running   0          17s
-kube-system          coredns-565d847f94-h2l7z                      1/1     Running   0          17s
-kube-system          etcd-test3-control-plane                      1/1     Running   0          31s
-kube-system          kindnet-jvsrp                                 1/1     Running   0          17s
-kube-system          kube-apiserver-test3-control-plane            1/1     Running   0          29s
-kube-system          kube-controller-manager-test3-control-plane   1/1     Running   0          29s
-kube-system          kube-proxy-f62c6                              1/1     Running   0          17s
-kube-system          kube-scheduler-test3-control-plane            1/1     Running   0          29s
-local-path-storage   local-path-provisioner-684f458cdd-lf52p       1/1     Running   0          17s
+kube-system          coredns-565d847f94-lrnwm                      1/1     Running   0          48s
+kube-system          coredns-565d847f94-wg2t2                      1/1     Running   0          48s
+kube-system          etcd-test3-control-plane                      1/1     Running   0          61s
+kube-system          kindnet-nklms                                 1/1     Running   0          48s
+kube-system          kube-apiserver-test3-control-plane            1/1     Running   0          62s
+kube-system          kube-controller-manager-test3-control-plane   1/1     Running   0          61s
+kube-system          kube-proxy-24t66                              1/1     Running   0          48s
+kube-system          kube-scheduler-test3-control-plane            1/1     Running   0          64s
+kube-system          metrics-server-cc57dff87-x8gnn                1/1     Running   0          48s
+local-path-storage   local-path-provisioner-684f458cdd-7wn47       1/1     Running   0          48s
+metallb-system       controller-6658b8446c-fnrqt                   1/1     Running   0          48s
+metallb-system       speaker-vbr24                                 1/1     Running   0          41s
 
 # docker ps
 CONTAINER ID   IMAGE                  COMMAND                  CREATED              STATUS              PORTS                       NAMES
