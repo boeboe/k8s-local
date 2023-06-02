@@ -68,6 +68,76 @@ function precheck {
   esac
 }
 
+# Get the local kubernetes provider type based on a given/configured kubectl context
+#   args:
+#     (1) kubectl context name
+#   returns:
+#     - prints provider string "k3d", "kind" or "minikube" with return value 0 if success
+#     - prints string "unknown" with return value 1 if provider unknown based on context name
+#     - prints string "notfound" with return value 1 if kubectl context does not exist
+function get_provider_type_by_kubectl_context {
+  [[ -z "${1}" ]] && echo "Please provide kubectl context name as 1st argument" && return 2 || local context_name="${1}" ;
+  
+  if output=$(kubectl config get-contexts ${context_name} --no-headers 2>/dev/null) ; then
+    case ${output} in
+      *"k3d"*)
+        echo "k3s" ;
+        return 0 ;
+        ;;
+      *"kind"*)
+        echo "kind" ;
+        return 0 ;
+        ;;
+      *"${context_name}"*)
+        echo "minikube" ;
+        return 0 ;
+        ;;
+      *)
+        echo "unkown" ;
+        return 1 ;
+        ;;
+    esac
+  else
+    echo "notfound" ;
+    return 1 ;
+  fi
+}
+
+# Get the local kubernetes provider type based on a given docker container
+#   args:
+#     (1) docker container name
+#   returns:
+#     - prints provider string "k3d", "kind" or "minikube" with return value 0 if success
+#     - prints string "unknown" with return value 1 if provider unknown based on container name
+#     - prints string "notfound" with return value 1 if container with this name does not exist
+function get_provider_type_by_container_name {
+  [[ -z "${1}" ]] && echo "Please provide docker container name as 1st argument" && return 2 || local container_name="${1}" ;
+  
+  if output=$(docker inspect ${container_name} -f '{{.Config.Image}}' 2>/dev/null) ; then
+    case ${output} in
+      *"k3s"*)
+        echo "k3s" ;
+        return 0 ;
+        ;;
+      *"kind"*)
+        echo "kind" ;
+        return 0 ;
+        ;;
+      *"kicbase"*)
+        echo "minikube" ;
+        return 0 ;
+        ;;
+      *)
+        echo "unkown" ;
+        return 1 ;
+        ;;
+    esac
+  else
+    echo "notfound" ;
+    return 1 ;
+  fi
+}
+
 # Check if a certain subnet is already in use
 #   args:
 #     (1) docker network subnet
@@ -243,8 +313,10 @@ function remove_k3s_cluster {
     docker rename "${cluster_name}" "k3d-${cluster_name}-server-0" ;
     kubectl config rename-context "${cluster_name}" "k3d-${cluster_name}" ;
     k3d cluster delete "${cluster_name}" ;
-    echo "Going to remove docker network '${network_name}'" ;
-    docker network rm ${network_name} ;
+    if $(docker network ls | grep ${network_name} &>/dev/null) ; then
+      echo "Going to remove docker network '${network_name}'" ;
+      docker network rm ${network_name} ;
+    fi
   fi
 }
 
@@ -344,8 +416,10 @@ function remove_kind_cluster {
     docker rename "${cluster_name}" "${cluster_name}-control-plane" ;
     kubectl config rename-context "${cluster_name}" "kind-${cluster_name}" ;
     kind delete cluster --name "${cluster_name}" ;
-    echo "Going to remove docker network '${network_name}'" ;
-    docker network rm ${network_name} ;
+    if $(docker network ls | grep ${network_name} &>/dev/null) ; then
+      echo "Going to remove docker network '${network_name}'" ;
+      docker network rm ${network_name} ;
+    fi
   fi
 }
 
@@ -433,8 +507,10 @@ function remove_minikube_cluster {
   if $(minikube profile list --light=true 2>/dev/null | grep ${cluster_name} &>/dev/null) ; then
     echo "Going to remove minikube cluster in minikube profile '${cluster_name}'" ;
     minikube delete --profile ${cluster_name} 2>/dev/null ;
-    echo "Going to remove docker network '${network_name}'" ;
-    docker network rm ${network_name} ;
+    if $(docker network ls | grep ${network_name} &>/dev/null) ; then
+      echo "Going to remove docker network '${network_name}'" ;
+      docker network rm ${network_name} ;
+    fi
   fi
 }
 
@@ -453,18 +529,33 @@ function start_cluster {
   [[ -z "${5}" ]] && echo "No subnet provided, finding a free one" && local network_subnet=$(get_docker_subnet_free) || local network_subnet="${5}" ;
   precheck ${k8s_provider};
 
-  echo "Going to start ${k8s_provider} based kubernetes cluster '${cluster_name}'" ;
-  case ${k8s_provider} in
-    "k3s")
-      start_k3s_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
-      ;;
-    "kind")
-      start_kind_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
-      ;;
-    "minikube")
-      start_minikube_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
-      ;;
-  esac
+  local existing_context_provider=$(get_provider_type_by_kubectl_context "${cluster_name}") ;
+  local existing_container_provider=$(get_provider_type_by_container_name "${cluster_name}") ;
+
+  if ( [[ ${existing_context_provider} == ${k8s_provider} ]] && [[ ${existing_container_provider} == ${k8s_provider} ]] ) || \
+     ( [[ ${existing_context_provider} == "notfound" ]] && [[ ${existing_container_provider} == "notfound" ]] ) ; then
+
+    echo "Going to start ${k8s_provider} based kubernetes cluster '${cluster_name}'" ;
+    case ${k8s_provider} in
+      "k3s")
+        start_k3s_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
+        ;;
+      "kind")
+        start_kind_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
+        ;;
+      "minikube")
+        start_minikube_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
+        ;;
+    esac
+
+  else
+    echo "Detected an unexpected kubectl context '${existing_context_provider}' or docker container '${existing_container_provider}' state for desired cluster with name '${cluster_name}' and provider '${k8s_provider}'" ;
+    kubectl config view ;
+    docker ps ;
+    docker network ls ;
+    echo "Please resolve this conflict manually" ;
+    exit 1 ;
+  fi
 }
 
 # Wait for all expected pods in local kubernetes cluster to be ready
