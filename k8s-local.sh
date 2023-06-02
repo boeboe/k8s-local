@@ -20,30 +20,49 @@ METALLB_POOLCONFIG_YAML=metallb-poolconfig.yaml
 METRICS_SERVER_INSTALL_YAML=metrics-server-0.6.3.yaml
 
 # Helper function to initialize defaults and do some prerequisite verifications
+#   args:
+#     (1) local kubernetes provider
 function precheck {
+  [[ -z "${1}" ]] && echo "Please provide local kubernetes provider as 1st argument" && return 2 || local k8s_provider="${1}" ;
+
+  # Set some global defaults (doing it here, as this needs to be evaluated multiple times, not only at script source time)
   K8S_LOCAL_METALLB_STARTIP="${K8S_LOCAL_METALLB_STARTIP:-100}"
   K8S_LOCAL_METALLB_STOPIP="${K8S_LOCAL_METALLB_STOPIP:-199}"
-  K8S_LOCAL_PROVIDER="${K8S_LOCAL_PROVIDER:-minikube}"
   K8S_LOCAL_DOCKER_SUBNET_START="${K8S_LOCAL_DOCKER_SUBNET_START:-192.168.49.0/24}"
 
   # Check if docker is installed
-  if ! $(command -v docker &> /dev/null) ; then
+  if $(command -v docker &> /dev/null) ; then
+    if ! $(docker ps &> /dev/null) ; then
+      echo "Cannot execute 'docker ps' without errors. Do you have the proper user permissions?" ;
+      exit 1 ;
+    fi
+  else
     echo "Executable 'docker' could not be found, please install this on your local system first" ;
     exit 1 ;
   fi
 
   # Check if a valid provider is configured and binary installed if needed
-  case ${K8S_LOCAL_PROVIDER} in
+  case ${k8s_provider} in
     "k3s")
+      if $(command -v k3d &> /dev/null) ; then true ; else
+        echo "? Executable 'k3d' for provider '${k8s_provider}' could not be found, please install this on your local system first" ;
+        exit 2 ;
+      fi
       ;;
-    "kind" | "minikube")
-      if $(command -v ${K8S_LOCAL_PROVIDER} &> /dev/null) ; then true ; else
-        echo "? Executable for provider '${K8S_LOCAL_PROVIDER}' could not be found, please install this on your local system first" ;
+    "kind")
+      if $(command -v kind &> /dev/null) ; then true ; else
+        echo "? Executable 'kind' for provider '${k8s_provider}' could not be found, please install this on your local system first" ;
+        exit 2 ;
+      fi
+      ;;
+    "minikube")
+      if $(command -v minikube &> /dev/null) ; then true ; else
+        echo "? Executable 'minikube' for provider '${k8s_provider}' could not be found, please install this on your local system first" ;
         exit 2 ;
       fi
       ;;
     *)
-      echo "Unknown K8S_LOCAL_PROVIDER '${K8S_LOCAL_PROVIDER}', quiting..." ;
+      echo "Unknown local kubernetes provider '${k8s_provider}', quiting..." ;
       exit 2 ;
       ;;
   esac
@@ -79,8 +98,8 @@ function get_docker_subnet_free {
 #     (1) container name
 #     (2) docker network name
 function get_docker_container_ip {
-  [[ -z "${1}" ]] && echo "Please provide container name as 1st argument" && return || local container_name="${1}" ;
-  [[ -z "${2}" ]] && echo "Please provide network name as 2nd argument" && return || local network_name="${2}" ;
+  [[ -z "${1}" ]] && echo "Please provide container name as 1st argument" && return 2 || local container_name="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide network name as 2nd argument" && return 2 || local network_name="${2}" ;
   docker container inspect --format "{{(index .NetworkSettings.Networks \"${network_name}\").IPAddress}}" "${container_name}" ;
 }
 
@@ -89,8 +108,8 @@ function get_docker_container_ip {
 #     (1) cluster name
 #     (2) docker network name
 function get_apiserver_url {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
-  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return || local network_name="${2}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return 2 || local network_name="${2}" ;
   local kubeapi_ip=$(get_docker_container_ip "${cluster_name}" "${network_name}") ;
   echo "https://${kubeapi_ip}:6443" ;
 }
@@ -100,8 +119,8 @@ function get_apiserver_url {
 #     (1) cluster name
 #     (2) docker network name
 function deploy_metallb {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
-  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return || local network_name="${2}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return 2 || local network_name="${2}" ;
 
   local network_subnet=$(docker network inspect --format '{{ if .IPAM.Config }}{{(index .IPAM.Config 0).Subnet}}{{ end }}' ${network_name}) ;
   local metallb_startip=$(echo ${network_subnet} |  awk -F '.' "{ print \$1\".\"\$2\".\"\$3\".\"${K8S_LOCAL_METALLB_STARTIP};}") ;
@@ -120,8 +139,8 @@ EOF
 #     (1) docker network name
 #     (2) docker network subnet
 function start_docker_network {
-  [[ -z "${1}" ]] && echo "Please provide network name as 1st argument" && return || local network_name="${1}" ;
-  [[ -z "${2}" ]] && echo "Please provide network subnet as 2nd argument" && return || local network_subnet="${2}" ;
+  [[ -z "${1}" ]] && echo "Please provide network name as 1st argument" && return 2 || local network_name="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide network subnet as 2nd argument" && return 2 || local network_subnet="${2}" ;
   local network_gateway=$(echo ${network_subnet} |  awk -F '.' "{ print \$1\".\"\$2\".\"\$3\".\"1;}") ;
   echo "Starting docker bridge network '${network_name}' with subnet '${network_subnet}' and gateway '${network_gateway}'" ;
   docker network create \
@@ -150,10 +169,10 @@ function remove_docker_network {
 #     (3) docker network name
 #     (4) docker network subnet
 function start_k3s_cluster {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
-  [[ -z "${2}" ]] && echo "Please provide k8s version as 2nd argument" && return || local k8s_version="${2}" ;
-  [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return || local network_name="${3}" ;
-  [[ -z "${4}" ]] && echo "Please provide docker network subnet as 4th argument" && return || local network_subnet="${4}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide k8s version as 2nd argument" && return 2 || local k8s_version="${2}" ;
+  [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return 2 || local network_name="${3}" ;
+  [[ -z "${4}" ]] && echo "Please provide docker network subnet as 4th argument" && return 2 || local network_subnet="${4}" ;
 
   if $(docker inspect -f '{{.State.Status}}' ${cluster_name} 2>/dev/null | grep "running" &>/dev/null) ; then
     echo "K3s cluster '${cluster_name}' already running" ;
@@ -185,7 +204,7 @@ function start_k3s_cluster {
 #   args:
 #     (1) cluster name
 function wait_k3s_cluster_ready {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
   echo "Waiting for all expected pods in cluster '${cluster_name}' to become ready"
 
   while ! $(kubectl --context ${cluster_name} get pod -n kube-system --selector k8s-app=kube-dns 2>&1 | grep -v "found" &>/dev/null) ; do sleep 0.1 ; done ;
@@ -205,7 +224,7 @@ function wait_k3s_cluster_ready {
 #   args:
 #     (1) cluster name
 function stop_k3s_cluster {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
   if $(docker inspect -f '{{.State.Status}}' ${cluster_name} | grep "running" &>/dev/null) ; then
     echo "Going to stop k3s cluster '${cluster_name}'" ;
     k3d cluster stop ${cluster_name} ;
@@ -217,8 +236,8 @@ function stop_k3s_cluster {
 #     (1) cluster name
 #     (2) docker network
 function remove_k3s_cluster {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
-  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return || local network_name="${2}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return 2 || local network_name="${2}" ;
   if $(k3d cluster list | grep "${cluster_name}" &>/dev/null) ; then
     echo "Going to remove k3s cluster '${cluster_name}'" ;
     docker rename "${cluster_name}" "k3d-${cluster_name}-server-0" ;
@@ -236,10 +255,10 @@ function remove_k3s_cluster {
 #     (3) docker network name
 #     (4) docker network subnet
 function start_kind_cluster {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
-  [[ -z "${2}" ]] && echo "Please provide k8s version as 2nd argument" && return || local k8s_version="${2}" ;
-  [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return || local network_name="${3}" ;
-  [[ -z "${4}" ]] && echo "Please provide docker network subnet as 4th argument" && return || local network_subnet="${4}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide k8s version as 2nd argument" && return 2 || local k8s_version="${2}" ;
+  [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return 2 || local network_name="${3}" ;
+  [[ -z "${4}" ]] && echo "Please provide docker network subnet as 4th argument" && return 2 || local network_subnet="${4}" ;
   
   if $(docker inspect -f '{{.State.Status}}' ${cluster_name} 2>/dev/null | grep "running" &>/dev/null) ; then
     echo "Kind cluster '${cluster_name}' already running" ;
@@ -274,7 +293,7 @@ function start_kind_cluster {
 #   args:
 #     (1) cluster name
 function wait_kind_cluster_ready {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
   echo "Waiting for all expected pods in cluster '${cluster_name}' to become ready"
 
   while ! $(kubectl --context ${cluster_name} get pod -n kube-system --selector k8s-app=kube-dns 2>&1 | grep -v "found" &>/dev/null) ; do sleep 0.1 ; done ;
@@ -306,7 +325,7 @@ function wait_kind_cluster_ready {
 #   args:
 #     (1) cluster name
 function stop_kind_cluster {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
   if $(docker inspect -f '{{.State.Status}}' ${cluster_name} | grep "running" &>/dev/null) ; then
     echo "Going to stop kind cluster '${cluster_name}'" ;
     docker stop ${cluster_name} ;
@@ -318,8 +337,8 @@ function stop_kind_cluster {
 #     (1) cluster name
 #     (2) docker network
 function remove_kind_cluster {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
-  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return || local network_name="${2}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return 2 || local network_name="${2}" ;
   if $(kind get clusters | grep "${cluster_name}" &>/dev/null) ; then
     echo "Going to remove kind cluster '${cluster_name}'" ;
     docker rename "${cluster_name}" "${cluster_name}-control-plane" ;
@@ -337,10 +356,10 @@ function remove_kind_cluster {
 #     (3) docker network name
 #     (4) docker network subnet
 function start_minikube_cluster {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
-  [[ -z "${2}" ]] && echo "Please provide k8s version as 2nd argument" && return || local k8s_version="${2}" ;
-  [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return || local network_name="${3}" ;
-  [[ -z "${4}" ]] && echo "Please provide docker network subnet as 4th argument" && return || local network_subnet="${4}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide k8s version as 2nd argument" && return 2 || local k8s_version="${2}" ;
+  [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return 2 || local network_name="${3}" ;
+  [[ -z "${4}" ]] && echo "Please provide docker network subnet as 4th argument" && return 2 || local network_subnet="${4}" ;
   if $(minikube --profile ${cluster_name} status 2>/dev/null | grep "host:" | grep "Running" &>/dev/null) ; then
     echo "Minikube cluster profile '${cluster_name}' already running" ;
   elif $(minikube --profile ${cluster_name} status 2>/dev/null | grep "host:" | grep "Stopped" &>/dev/null) ; then
@@ -367,7 +386,7 @@ function start_minikube_cluster {
 #   args:
 #     (1) cluster name
 function wait_minikube_cluster_ready {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
   echo "Waiting for all expected pods in cluster '${cluster_name}' to become ready"
 
   while ! $(kubectl --context ${cluster_name} get pod -n kube-system --selector k8s-app=kube-dns 2>&1 | grep -v "found" &>/dev/null) ; do sleep 0.1 ; done ;
@@ -397,7 +416,7 @@ function wait_minikube_cluster_ready {
 #   args:
 #     (1) cluster name
 function stop_minikube_cluster {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
   if $(minikube --profile ${cluster_name} status 2>/dev/null | grep "host:" | grep "Running" &>/dev/null) ; then
     echo "Going to stop minikube cluster in minikube profile '${cluster_name}'" ;
     minikube stop --profile ${cluster_name} 2>/dev/null ;
@@ -409,8 +428,8 @@ function stop_minikube_cluster {
 #     (1) cluster name
 #     (2) docker network
 function remove_minikube_cluster {
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
-  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return || local network_name="${2}" ;
+  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return 2 || local network_name="${2}" ;
   if $(minikube profile list --light=true 2>/dev/null | grep ${cluster_name} &>/dev/null) ; then
     echo "Going to remove minikube cluster in minikube profile '${cluster_name}'" ;
     minikube delete --profile ${cluster_name} 2>/dev/null ;
@@ -421,20 +440,21 @@ function remove_minikube_cluster {
 
 # Start a local kubernetes cluster
 #   args:
-#     (1) cluster name
-#     (2) k8s version
-#     (3) docker network name
-#     (4) docker network subnet
+#     (1) local kubernetes provider
+#     (2) cluster name
+#     (3) k8s version
+#     (4) docker network name
+#     (5) docker network subnet
 function start_cluster {
-  precheck ;
+  [[ -z "${1}" ]] && echo "Please provide local kubernetes provider as 1st argument" && return 2 || local k8s_provider="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide cluster name as 2nd argument" && return 2 || local cluster_name="${2}" ;
+  [[ -z "${3}" ]] && echo "Please provide k8s version as 3rd argument" && return 2 || local k8s_version="${3}" ;
+  [[ -z "${4}" ]] && echo "Please provide docker network name as 4th argument" && return 2 || local network_name="${4}" ;
+  [[ -z "${5}" ]] && echo "No subnet provided, finding a free one" && local network_subnet=$(get_docker_subnet_free) || local network_subnet="${5}" ;
+  precheck ${k8s_provider};
 
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
-  [[ -z "${2}" ]] && echo "Please provide k8s version as 2nd argument" && return || local k8s_version="${2}" ;
-  [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return || local network_name="${3}" ;
-  [[ -z "${4}" ]] && echo "No subnet provided, finding a free one" && local network_subnet=$(get_docker_subnet_free) || local network_subnet="${4}" ;
-
-  echo "Going to start ${K8S_LOCAL_PROVIDER} based kubernetes cluster '${cluster_name}'" ;
-  case ${K8S_LOCAL_PROVIDER} in
+  echo "Going to start ${k8s_provider} based kubernetes cluster '${cluster_name}'" ;
+  case ${k8s_provider} in
     "k3s")
       start_k3s_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
       ;;
@@ -449,14 +469,20 @@ function start_cluster {
 
 # Wait for all expected pods in local kubernetes cluster to be ready
 #   args:
-#     (1) cluster name
+#     (1) local kubernetes provider
+#     (2) cluster name
 function wait_cluster_ready {
-  precheck ;
+  [[ -z "${1}" ]] && echo "Please provide local kubernetes provider as 1st argument" && return 2 || local k8s_provider="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide cluster name as 2nd argument" && return 2 || local cluster_name="${2}" ;
+  precheck ${k8s_provider};
 
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
+  echo "Going to wait for ${k8s_provider} based kubernetes cluster '${cluster_name}' to be ready" ;
+  echo -n "Waiting for kubectl context of cluster '${cluster_name}' to become available: "
+  while ! $(kubectl config get-contexts | grep "${cluster_name}" &>/dev/null) ; do sleep 0.1 ; echo -n "." ; done ; echo "DONE" ;
+  echo -n "Waiting for kubectl to be able to reach cluster apiserver of '${cluster_name}': "
+  while ! $(kubectl --context ${cluster_name} get nodes &>/dev/null) ; do sleep 0.1 ; echo -n "." ; done ; echo "DONE" ;
 
-  echo "Going to start ${K8S_LOCAL_PROVIDER} based kubernetes cluster '${cluster_name}'" ;
-  case ${K8S_LOCAL_PROVIDER} in
+  case ${k8s_provider} in
     "k3s")
       wait_k3s_cluster_ready "${cluster_name}" ;
       ;;
@@ -472,14 +498,15 @@ function wait_cluster_ready {
 
 # Stop a local kubernetes cluster
 #   args:
-#     (1) cluster name
+#     (1) local kubernetes provider
+#     (2) cluster name
 function stop_cluster {
-  precheck ;
+  [[ -z "${1}" ]] && echo "Please provide local kubernetes provider as 1st argument" && return 2 || local k8s_provider="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide cluster name as 2nd argument" && return 2 || local cluster_name="${2}" ;
+  precheck ${k8s_provider};
 
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
-
-  echo "Going to stop ${K8S_LOCAL_PROVIDER} based kubernetes cluster '${cluster_name}'" ;
-  case ${K8S_LOCAL_PROVIDER} in
+  echo "Going to stop ${k8s_provider} based kubernetes cluster '${cluster_name}'" ;
+  case ${k8s_provider} in
     "k3s")
       stop_k3s_cluster "${cluster_name}" ;
       ;;
@@ -494,16 +521,17 @@ function stop_cluster {
 
 # Remove a local kubernetes cluster
 #   args:
-#     (1) cluster name
-#     (2) docker network
+#     (1) local kubernetes provider
+#     (2) cluster name
+#     (3) docker network
 function remove_cluster {
-  precheck ;
+  [[ -z "${1}" ]] && echo "Please provide local kubernetes provider as 1st argument" && return 2 || local k8s_provider="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide cluster name as 2nd argument" && return 2 || local cluster_name="${2}" ;
+  [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return 2 || local network_name="${3}" ;
+  precheck ${k8s_provider};
 
-  [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return || local cluster_name="${1}" ;
-  [[ -z "${2}" ]] && echo "Please provide docker network name as 2nd argument" && return || local network_name="${2}" ;
-
-  echo "Going to remove ${K8S_LOCAL_PROVIDER} based kubernetes cluster '${cluster_name}'" ;
-  case ${K8S_LOCAL_PROVIDER} in
+  echo "Going to remove ${k8s_provider} based kubernetes cluster '${cluster_name}'" ;
+  case ${k8s_provider} in
     "k3s")
       remove_k3s_cluster "${cluster_name}" "${network_name}" ;
       ;;
@@ -512,6 +540,48 @@ function remove_cluster {
       ;;
     "minikube")
       remove_minikube_cluster "${cluster_name}" "${network_name}" ;
+      ;;
+  esac
+}
+
+# Check if kubernetes version is available
+#   args:
+#     (1) local kubernetes provider
+#     (2) k8s version
+function is_k8s_version_available {
+  [[ -z "${1}" ]] && echo "Please provide local kubernetes provider as 1st argument" && return 2 || local k8s_provider="${1}" ;
+  [[ -z "${2}" ]] && echo "Please provide k8s version as 2nd argument" && return 2 || local k8s_version="${2}" ;
+
+  echo "Going to check if kubernetes version ${k8s_version} is available for provider '${k8s_provider}'" ;
+  case ${k8s_provider} in
+    "k3s")
+      if $(docker images | grep "rancher/k3s" | grep "v${k8s_version}-k3s1" &>/dev/null) ; then
+        return 0 ;
+      else
+        if $(curl --silent "https://hub.docker.com/v2/repositories/rancher/k3s/tags/?page_size=100" | jq -r '.results|.[]|.name' | grep "v${k8s_version}-k3s1" &>/dev/null) ; then
+          return 0 ;
+        else
+          return 1 ;
+        fi
+      fi
+      ;;
+    "kind")
+      if $(docker images | grep "kindest/node" | grep "v${k8s_version}" &>/dev/null) ; then
+        return 0 ;
+      else
+        if $(curl --silent "https://hub.docker.com/v2/repositories/kindest/node/tags/?page_size=100" | jq -r '.results|.[]|.name' | grep "v${k8s_version}" &>/dev/null) ; then
+          return 0 ;
+        else
+          return 1 ;
+        fi
+      fi
+      ;;
+    "minikube")
+      if $(curl --silent "https://raw.githubusercontent.com/kubernetes/minikube/master/pkg/minikube/constants/constants_kubernetes_versions.go" | grep "v${k8s_version}" &>/dev/null) ; then
+        return 0 ;
+      else
+        return 1 ;
+      fi
       ;;
   esac
 }
