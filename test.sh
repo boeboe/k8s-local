@@ -8,11 +8,8 @@ source ${ROOT_DIR}/k8s-local.sh
 TEST_MINIKUBE=false
 TEST_K3S=false
 TEST_KIND=false
-# TEST_ALL=false
-# TEST_MINIKUBE=true
-# TEST_K3S=true
-# TEST_KIND=true
 TEST_ALL=true
+TEST_ALL_WITH_REGISTRY=false
 
 if ${TEST_MINIKUBE} ; then
   echo "========== Test default provider: minikube =========="
@@ -64,6 +61,21 @@ if ${TEST_ALL} ; then
   start_cluster "k3s" "test1" "1.25.8" "test1";
   start_cluster "kind" "test2" "1.25.8" "test2";
   start_cluster "minikube" "test3" "1.25.8" "test3";
+  wait_cluster_ready "k3s" "test1";
+  wait_cluster_ready "kind" "test2";
+  wait_cluster_ready "minikube" "test3";
+  echo "Starting all (k3s, kind and minikube) clusters: DONE" ; read -p "Press enter to continue" ;
+  remove_cluster "k3s" "test1" "test1";
+  remove_cluster "kind" "test2" "test2";
+  remove_cluster "minikube" "test3" "test3";
+  echo "Removing all (k3s, kind and minikube) clusters: DONE" ; read -p "Press enter to continue" ;
+fi
+
+if ${TEST_ALL_WITH_REGISTRY} ; then
+  echo "========== Test all providers =========="
+  start_cluster "k3s" "test1" "1.25.8" "test1" "" "192.168.48.2:5000" ;
+  start_cluster "kind" "test2" "1.25.8" "test2" "192.168.200.0/24" "192.168.48.2:5000" ;
+  start_cluster "minikube" "test3" "1.25.8" "test3" "" "192.168.48.2:5000" ;
   wait_cluster_ready "k3s" "test1";
   wait_cluster_ready "kind" "test2";
   wait_cluster_ready "minikube" "test3";

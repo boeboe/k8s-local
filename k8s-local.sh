@@ -19,25 +19,44 @@ METALLB_POOLCONFIG_YAML=metallb-poolconfig.yaml
 # Patched: added --kubelet-insecure-tls to metrics-server container command
 METRICS_SERVER_INSTALL_YAML=metrics-server-0.6.3.yaml
 
-# Helper function to initialize defaults and do some prerequisite verifications
+# Docker and metallb ip addressing defaults
+K8S_LOCAL_DOCKER_SUBNET_START="${K8S_LOCAL_DOCKER_SUBNET_START:-192.168.49.0/24}"
+K8S_LOCAL_METALLB_STARTIP="${K8S_LOCAL_METALLB_STARTIP:-100}"
+K8S_LOCAL_METALLB_STOPIP="${K8S_LOCAL_METALLB_STOPIP:-199}"
+
+# Some colors
+END_COLOR="\033[0m"
+GREENB_COLOR="\033[1;32m"
+REDB_COLOR="\033[1;31m"
+
+# Print info messages
+#   args:
+#     (1) message
+function print_info {
+  echo -e "${GREENB_COLOR}${1}${END_COLOR}" ;
+}
+
+# Print error messages
+#   args:
+#     (1) message
+function print_error {
+  echo -e "${REDB_COLOR}${1}${END_COLOR}" ;
+}
+
+# Helper function to do some prerequisite verifications
 #   args:
 #     (1) local kubernetes provider
 function precheck {
-  [[ -z "${1}" ]] && echo "Please provide local kubernetes provider as 1st argument" && return 2 || local k8s_provider="${1}" ;
-
-  # Set some global defaults (doing it here, as this needs to be evaluated multiple times, not only at script source time)
-  K8S_LOCAL_METALLB_STARTIP="${K8S_LOCAL_METALLB_STARTIP:-100}"
-  K8S_LOCAL_METALLB_STOPIP="${K8S_LOCAL_METALLB_STOPIP:-199}"
-  K8S_LOCAL_DOCKER_SUBNET_START="${K8S_LOCAL_DOCKER_SUBNET_START:-192.168.49.0/24}"
+  [[ -z "${1}" ]] && print_error "Please provide local kubernetes provider as 1st argument" && return 2 || local k8s_provider="${1}" ;
 
   # Check if docker is installed
   if $(command -v docker &> /dev/null) ; then
     if ! $(docker ps &> /dev/null) ; then
-      echo "Cannot execute 'docker ps' without errors. Do you have the proper user permissions?" ;
+      print_error "Cannot execute 'docker ps' without errors. Do you have the proper user permissions?" ;
       exit 1 ;
     fi
   else
-    echo "Executable 'docker' could not be found, please install this on your local system first" ;
+    print_error "Executable 'docker' could not be found, please install this on your local system first" ;
     exit 1 ;
   fi
 
@@ -45,24 +64,24 @@ function precheck {
   case ${k8s_provider} in
     "k3s")
       if $(command -v k3d &> /dev/null) ; then true ; else
-        echo "? Executable 'k3d' for provider '${k8s_provider}' could not be found, please install this on your local system first" ;
+        print_error "? Executable 'k3d' for provider '${k8s_provider}' could not be found, please install this on your local system first" ;
         exit 2 ;
       fi
       ;;
     "kind")
       if $(command -v kind &> /dev/null) ; then true ; else
-        echo "? Executable 'kind' for provider '${k8s_provider}' could not be found, please install this on your local system first" ;
+        print_error "? Executable 'kind' for provider '${k8s_provider}' could not be found, please install this on your local system first" ;
         exit 2 ;
       fi
       ;;
     "minikube")
       if $(command -v minikube &> /dev/null) ; then true ; else
-        echo "? Executable 'minikube' for provider '${k8s_provider}' could not be found, please install this on your local system first" ;
+        print_error "? Executable 'minikube' for provider '${k8s_provider}' could not be found, please install this on your local system first" ;
         exit 2 ;
       fi
       ;;
     *)
-      echo "Unknown local kubernetes provider '${k8s_provider}', quiting..." ;
+      print_error "Unknown local kubernetes provider '${k8s_provider}', quiting..." ;
       exit 2 ;
       ;;
   esac
@@ -238,11 +257,13 @@ function remove_docker_network {
 #     (2) k8s version
 #     (3) docker network name
 #     (4) docker network subnet
+#     (5) docker insecure registry
 function start_k3s_cluster {
   [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
   [[ -z "${2}" ]] && echo "Please provide k8s version as 2nd argument" && return 2 || local k8s_version="${2}" ;
   [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return 2 || local network_name="${3}" ;
   [[ -z "${4}" ]] && echo "Please provide docker network subnet as 4th argument" && return 2 || local network_subnet="${4}" ;
+  [[ -z "${5}" ]] && echo "No insecure registry provided" && local insecure_registry="" || local insecure_registry="${5}" ;
 
   if $(docker inspect -f '{{.State.Status}}' ${cluster_name} 2>/dev/null | grep "running" &>/dev/null) ; then
     echo "K3s cluster '${cluster_name}' already running" ;
@@ -251,15 +272,42 @@ function start_k3s_cluster {
     docker start ${cluster_name} ;
   else
     local image="rancher/k3s:v${k8s_version}-k3s1" ;
-    echo "Starting k3s cluster '${cluster_name}':" ;
-    echo "  cluster_name: ${cluster_name}" ;
-    echo "  image: ${image}" ;
-    echo "  k8s_version: ${k8s_version}" ;
-    echo "  network_name: ${network_name}" ;
-    echo "  network_subnet: ${network_subnet}" ;
-
+    print_info "Starting k3s cluster '${cluster_name}':" ;
+    print_info "  cluster_name: '${cluster_name}'" ;
+    print_info "  image: '${image}'" ;
+    print_info "  insecure_registry: '${insecure_registry}'" ;
+    print_info "  k8s_version: '${k8s_version}'" ;
+    print_info "  network_name: '${network_name}'" ;
+    print_info "  network_subnet: '${network_subnet}'" ;
     start_docker_network "${network_name}" "${network_subnet}" ;
-    k3d cluster create --network "${network_name}" --servers 1 --agents 0 --image ${image} --no-lb "${cluster_name}" --k3s-arg "--disable=traefik@server:0" ;
+
+    if [[ -z "${insecure_registry}" ]]; then
+      k3d cluster create \
+        --agents 0 \
+        --image ${image} \
+        --k3s-arg "--disable=traefik@server:0" \
+        --network "${network_name}" \
+        --no-lb "${cluster_name}" \
+        --servers 1 ;
+    else
+      tee /tmp/k3d-${cluster_name}-registries.yaml <<EOF
+mirrors:
+  "${insecure_registry}":
+    endpoint:
+      - http://${insecure_registry}
+EOF
+
+      k3d cluster create \
+        --agents 0 \
+        --image ${image} \
+        --k3s-arg "--disable=traefik@server:0" \
+        --network "${network_name}" \
+        --no-lb "${cluster_name}" \
+        --registry-config "/tmp/k3d-${cluster_name}-registries.yaml" \
+        --servers 1 ;
+    fi
+
+    # Add consistency to docker container and kubectl context names
     docker rename "k3d-${cluster_name}-server-0" "${cluster_name}" ;
     kubectl config rename-context "k3d-${cluster_name}" "${cluster_name}" ;
     local apiserver_address=$(get_apiserver_url "${cluster_name}" "${network_name}") ;
@@ -275,7 +323,7 @@ function start_k3s_cluster {
 #     (1) cluster name
 function wait_k3s_cluster_ready {
   [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
-  echo "Waiting for all expected pods in cluster '${cluster_name}' to become ready"
+  print_info "Waiting for all expected pods in cluster '${cluster_name}' to become ready"
 
   while ! $(kubectl --context ${cluster_name} get pod -n kube-system --selector k8s-app=kube-dns 2>&1 | grep -v "found" &>/dev/null) ; do sleep 0.1 ; done ;
   while ! $(kubectl --context ${cluster_name} get pod -n kube-system --selector app=local-path-provisioner 2>&1 | grep -v "found" &>/dev/null) ; do sleep 0.1 ; done ;
@@ -326,12 +374,14 @@ function remove_k3s_cluster {
 #     (2) k8s version
 #     (3) docker network name
 #     (4) docker network subnet
+#     (5) docker insecure registry
 function start_kind_cluster {
   [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
   [[ -z "${2}" ]] && echo "Please provide k8s version as 2nd argument" && return 2 || local k8s_version="${2}" ;
   [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return 2 || local network_name="${3}" ;
   [[ -z "${4}" ]] && echo "Please provide docker network subnet as 4th argument" && return 2 || local network_subnet="${4}" ;
-  
+  [[ -z "${5}" ]] && echo "No insecure registry provided" && local insecure_registry="" || local insecure_registry="${5}" ;
+
   if $(docker inspect -f '{{.State.Status}}' ${cluster_name} 2>/dev/null | grep "running" &>/dev/null) ; then
     echo "Kind cluster '${cluster_name}' already running" ;
   elif $(docker inspect -f '{{.State.Status}}' ${cluster_name} 2>/dev/null | grep "exited" &>/dev/null) ; then
@@ -339,15 +389,36 @@ function start_kind_cluster {
     docker start ${cluster_name} ;
   else
     local image="kindest/node:v${k8s_version}" ;
-    echo "Starting kind cluster '${cluster_name}':" ;
-    echo "  cluster_name: ${cluster_name}" ;
-    echo "  image: ${image}" ;
-    echo "  k8s_version: ${k8s_version}" ;
-    echo "  network_name: ${network_name}" ;
-    echo "  network_subnet: ${network_subnet}" ;
-
+    print_info "Starting kind cluster '${cluster_name}':" ;
+    print_info "  cluster_name: '${cluster_name}'" ;
+    print_info "  image: '${image}'" ;
+    print_info "  insecure_registry: '${insecure_registry}'" ;
+    print_info "  k8s_version: '${k8s_version}'" ;
+    print_info "  network_name: '${network_name}'" ;
+    print_info "  network_subnet: '${network_subnet}'" ;
     start_docker_network "${network_name}" "${network_subnet}" ;
-    KIND_EXPERIMENTAL_DOCKER_NETWORK=${network_name} kind create cluster --name "${cluster_name}" --image "${image}" ;
+
+    if [[ -z "${insecure_registry}" ]]; then
+      KIND_EXPERIMENTAL_DOCKER_NETWORK=${network_name} kind create cluster \
+        --name "${cluster_name}" \
+        --image "${image}" ;
+    else
+      tee /tmp/kind-${cluster_name}-registries.yaml <<EOF
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."${insecure_registry}"] 
+    endpoint = ["http://${insecure_registry}"]
+EOF
+
+      KIND_EXPERIMENTAL_DOCKER_NETWORK=${network_name} kind create cluster \
+        --config /tmp/kind-${cluster_name}-registries.yaml \
+        --image "${image}" \
+        --name "${cluster_name}";
+    fi
+
+    # Add consistency to docker container and kubectl context names
     docker rename "${cluster_name}-control-plane" "${cluster_name}" ;
     kubectl config rename-context "kind-${cluster_name}" "${cluster_name}" ;
     local apiserver_address=$(get_apiserver_url "${cluster_name}" "${network_name}") ;
@@ -366,7 +437,7 @@ function start_kind_cluster {
 #     (1) cluster name
 function wait_kind_cluster_ready {
   [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
-  echo "Waiting for all expected pods in cluster '${cluster_name}' to become ready"
+  print_info "Waiting for all expected pods in cluster '${cluster_name}' to become ready"
 
   while ! $(kubectl --context ${cluster_name} get pod -n kube-system --selector k8s-app=kube-dns 2>&1 | grep -v "found" &>/dev/null) ; do sleep 0.1 ; done ;
   while ! $(kubectl --context ${cluster_name} get pod -n kube-system --selector component=etcd 2>&1 | grep -v "found" &>/dev/null) ; do sleep 0.1 ; done ;
@@ -429,25 +500,47 @@ function remove_kind_cluster {
 #     (2) k8s version
 #     (3) docker network name
 #     (4) docker network subnet
+#     (5) docker insecure registry
 function start_minikube_cluster {
   [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
   [[ -z "${2}" ]] && echo "Please provide k8s version as 2nd argument" && return 2 || local k8s_version="${2}" ;
   [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return 2 || local network_name="${3}" ;
   [[ -z "${4}" ]] && echo "Please provide docker network subnet as 4th argument" && return 2 || local network_subnet="${4}" ;
+  [[ -z "${5}" ]] && echo "No insecure registry provided" && local insecure_registry="" || local insecure_registry="${5}" ;
   if $(minikube --profile ${cluster_name} status 2>/dev/null | grep "host:" | grep "Running" &>/dev/null) ; then
     echo "Minikube cluster profile '${cluster_name}' already running" ;
   elif $(minikube --profile ${cluster_name} status 2>/dev/null | grep "host:" | grep "Stopped" &>/dev/null) ; then
     echo "Restarting minikube cluster profile '${cluster_name}'" ;
     minikube start --driver=docker --profile ${cluster_name} ;
   else
-    echo "Starting minikube cluster in minikube profile '${cluster_name}':" ;
-    echo "  cluster_name: ${cluster_name}" ;
-    echo "  k8s_version: ${k8s_version}" ;
-    echo "  network_name: ${network_name}" ;
-    echo "  network_subnet: ${network_subnet}" ;
+    print_info "Starting minikube cluster in minikube profile '${cluster_name}':" ;
+    print_info "  cluster_name: '${cluster_name}'" ;
+    print_info "  insecure_registry: '${insecure_registry}'" ;
+    print_info "  k8s_version: '${k8s_version}'" ;
+    print_info "  network_name: '${network_name}'" ;
+    print_info "  network_subnet: '${network_subnet}'" ;
     start_docker_network "${network_name}" "${network_subnet}" ;
-    minikube --profile=${cluster_name} --driver=docker --kubernetes-version=v${k8s_version} --network=${network_name} --subnet=${network_subnet} --apiserver-port=6443 start ;
-    
+
+    if [[ -z "${insecure_registry}" ]]; then
+      minikube start \
+        --apiserver-port 6443 \
+        --driver docker \
+        --kubernetes-version v${k8s_version} \
+        --network ${network_name} \
+        --profile ${cluster_name} \
+        --subnet ${network_subnet} ;
+    else
+      local insecure_registry_subnet=$(echo ${insecure_registry} |  awk -F '.' "{ print \$1\".\"\$2\".\"\$3\".0/24\";}") ;
+      minikube start \
+        --apiserver-port 6443 \
+        --driver docker \
+        --insecure-registry ${insecure_registry_subnet} \
+        --kubernetes-version v${k8s_version} \
+        --network ${network_name} \
+        --profile ${cluster_name} \
+        --subnet ${network_subnet} ;
+    fi
+
     echo "Enabling metrics-server addon on minikube cluster '${cluster_name}'" ;
     minikube --profile=${cluster_name} addons enable metrics-server ;
 
@@ -461,7 +554,7 @@ function start_minikube_cluster {
 #     (1) cluster name
 function wait_minikube_cluster_ready {
   [[ -z "${1}" ]] && echo "Please provide cluster name as 1st argument" && return 2 || local cluster_name="${1}" ;
-  echo "Waiting for all expected pods in cluster '${cluster_name}' to become ready"
+  print_info "Waiting for all expected pods in cluster '${cluster_name}' to become ready"
 
   while ! $(kubectl --context ${cluster_name} get pod -n kube-system --selector k8s-app=kube-dns 2>&1 | grep -v "found" &>/dev/null) ; do sleep 0.1 ; done ;
   while ! $(kubectl --context ${cluster_name} get pod -n kube-system --selector component=etcd 2>&1 | grep -v "found" &>/dev/null) ; do sleep 0.1 ; done ;
@@ -521,12 +614,14 @@ function remove_minikube_cluster {
 #     (3) k8s version
 #     (4) docker network name
 #     (5) docker network subnet
+#     (6) docker insecure registry
 function start_cluster {
   [[ -z "${1}" ]] && echo "Please provide local kubernetes provider as 1st argument" && return 2 || local k8s_provider="${1}" ;
   [[ -z "${2}" ]] && echo "Please provide cluster name as 2nd argument" && return 2 || local cluster_name="${2}" ;
   [[ -z "${3}" ]] && echo "Please provide k8s version as 3rd argument" && return 2 || local k8s_version="${3}" ;
   [[ -z "${4}" ]] && echo "Please provide docker network name as 4th argument" && return 2 || local network_name="${4}" ;
-  [[ -z "${5}" ]] && echo "No subnet provided, finding a free one" && local network_subnet=$(get_docker_subnet_free) || local network_subnet="${5}" ;
+  [[ -z "${5}" ]] && local network_subnet=$(get_docker_subnet_free) && echo "No subnet provided, using a free one '${network_subnet}'" || local network_subnet="${5}" ;
+  [[ -z "${6}" ]] && echo "No insecure registry provided" && local insecure_registry="" || local insecure_registry="${6}" ;
   precheck ${k8s_provider};
 
   local existing_context_provider=$(get_provider_type_by_kubectl_context "${cluster_name}") ;
@@ -538,22 +633,22 @@ function start_cluster {
     echo "Going to start ${k8s_provider} based kubernetes cluster '${cluster_name}'" ;
     case ${k8s_provider} in
       "k3s")
-        start_k3s_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
+        start_k3s_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" "${insecure_registry}";
         ;;
       "kind")
-        start_kind_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
+        start_kind_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" "${insecure_registry}";
         ;;
       "minikube")
-        start_minikube_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" ;
+        start_minikube_cluster "${cluster_name}" "${k8s_version}" "${network_name}" "${network_subnet}" "${insecure_registry}";
         ;;
     esac
 
   else
-    echo "Detected an unexpected kubectl context '${existing_context_provider}' or docker container '${existing_container_provider}' state for desired cluster with name '${cluster_name}' and provider '${k8s_provider}'" ;
+    print_error "Detected an unexpected kubectl context '${existing_context_provider}' or docker container '${existing_container_provider}' state for desired cluster with name '${cluster_name}' and provider '${k8s_provider}'" ;
     kubectl config view ;
     docker ps ;
     docker network ls ;
-    echo "Please resolve this conflict manually" ;
+    print_error "Please resolve this conflict manually" ;
     exit 1 ;
   fi
 }
