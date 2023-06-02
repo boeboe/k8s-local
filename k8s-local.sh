@@ -285,7 +285,7 @@ function start_k3s_cluster {
       k3d cluster create \
         --agents 0 \
         --image ${image} \
-        --k3s-arg "--disable=traefik@server:0 --disable=servicelb@server:0" \
+        --k3s-arg "--disable=traefik,servicelb@server:0" \
         --network "${network_name}" \
         --no-lb "${cluster_name}" \
         --servers 1 ;
@@ -300,7 +300,7 @@ EOF
       k3d cluster create \
         --agents 0 \
         --image ${image} \
-        --k3s-arg "--disable=traefik@server:0 --disable=servicelb@server:0" \
+        --k3s-arg "--disable=traefik,servicelb@server:0" \
         --network "${network_name}" \
         --no-lb "${cluster_name}" \
         --registry-config "/tmp/k3d-${cluster_name}-registries.yaml" \
