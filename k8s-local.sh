@@ -424,7 +424,7 @@ EOF
     local apiserver_address=$(get_apiserver_url "${cluster_name}" "${network_name}") ;
     kubectl config set-cluster "kind-${cluster_name}" --server="${apiserver_address}" ;
 
-    echo "Deploying metrics-server:v0.6.3 to kind cluster '${cluster_name}'" ;
+    echo "Deploying metrics-server to kind cluster '${cluster_name}'" ;
     kubectl --context ${cluster_name} apply -f ${METRICS_SERVER_INSTALL_YAML} ;
 
     echo "Deploying and configuring metallb on kind cluster '${cluster_name}'" ;
@@ -541,8 +541,8 @@ function start_minikube_cluster {
         --subnet ${network_subnet} ;
     fi
 
-    echo "Enabling metrics-server addon on minikube cluster '${cluster_name}'" ;
-    minikube --profile=${cluster_name} addons enable metrics-server ;
+    echo "Deploying metrics-server to minikube cluster '${cluster_name}'" ;
+    kubectl --context ${cluster_name} apply -f ${METRICS_SERVER_INSTALL_YAML} ;
 
     echo "Deploying and configuring metallb on minikube cluster '${cluster_name}'" ;
     deploy_metallb "${cluster_name}" "${network_name}" ;
