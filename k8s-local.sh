@@ -622,7 +622,7 @@ function start_cluster {
   [[ -z "${4}" ]] && echo "Please provide docker network name as 4th argument" && return 2 || local network_name="${4}" ;
   [[ -z "${5}" ]] && local network_subnet=$(get_docker_subnet_free) && echo "No subnet provided, using a free one '${network_subnet}'" || local network_subnet="${5}" ;
   [[ -z "${6}" ]] && echo "No insecure registry provided" && local insecure_registry="" || local insecure_registry="${6}" ;
-  precheck ${k8s_provider};
+  precheck ${k8s_provider} ;
 
   local existing_context_provider=$(get_provider_type_by_kubectl_context "${cluster_name}") ;
   local existing_container_provider=$(get_provider_type_by_container_name "${cluster_name}") ;
@@ -660,7 +660,7 @@ function start_cluster {
 function wait_cluster_ready {
   [[ -z "${1}" ]] && echo "Please provide local kubernetes provider as 1st argument" && return 2 || local k8s_provider="${1}" ;
   [[ -z "${2}" ]] && echo "Please provide cluster name as 2nd argument" && return 2 || local cluster_name="${2}" ;
-  precheck ${k8s_provider};
+  precheck ${k8s_provider} ;
 
   echo "Going to wait for ${k8s_provider} based kubernetes cluster '${cluster_name}' to be ready" ;
   echo -n "Waiting for kubectl context of cluster '${cluster_name}' to become available: "
@@ -689,7 +689,7 @@ function wait_cluster_ready {
 function stop_cluster {
   [[ -z "${1}" ]] && echo "Please provide local kubernetes provider as 1st argument" && return 2 || local k8s_provider="${1}" ;
   [[ -z "${2}" ]] && echo "Please provide cluster name as 2nd argument" && return 2 || local cluster_name="${2}" ;
-  precheck ${k8s_provider};
+  precheck ${k8s_provider} ;
 
   echo "Going to stop ${k8s_provider} based kubernetes cluster '${cluster_name}'" ;
   case ${k8s_provider} in
@@ -714,7 +714,7 @@ function remove_cluster {
   [[ -z "${1}" ]] && echo "Please provide local kubernetes provider as 1st argument" && return 2 || local k8s_provider="${1}" ;
   [[ -z "${2}" ]] && echo "Please provide cluster name as 2nd argument" && return 2 || local cluster_name="${2}" ;
   [[ -z "${3}" ]] && echo "Please provide docker network name as 3rd argument" && return 2 || local network_name="${3}" ;
-  precheck ${k8s_provider};
+  precheck ${k8s_provider} ;
 
   echo "Going to remove ${k8s_provider} based kubernetes cluster '${cluster_name}'" ;
   case ${k8s_provider} in
@@ -728,6 +728,34 @@ function remove_cluster {
       remove_minikube_cluster "${cluster_name}" "${network_name}" ;
       ;;
   esac
+}
+
+# Remove all local kubernetes clusters
+function remove_all_clusters {
+  precheck ${k8s_provider} ;
+
+  for kube_context in $(kubectl config get-contexts --no-headers -o name); do
+    k8s_provider=$(get_provider_type_by_kubectl_context "${kube_context}") ;
+    cluster_name=${kube_context} ;
+    network_name=${kube_context} ;
+    case ${k8s_provider} in
+      "k3s")
+        echo "Going to remove k3s based kubernetes cluster '${cluster_name}'" ;
+        remove_k3s_cluster "${cluster_name}" "${network_name}" ;
+        ;;
+      "kind")
+        echo "Going to remove kind based kubernetes cluster '${cluster_name}'" ;
+        remove_kind_cluster "${cluster_name}" "${network_name}" ;
+        ;;
+      "minikube")
+        echo "Going to remove minikube based kubernetes cluster '${cluster_name}'" ;
+        remove_minikube_cluster "${cluster_name}" "${network_name}" ;
+        ;;
+      "unkown")
+        echo "This kubectl context '${kube_context}' is not a local k3s, kind of minikube cluster" ;
+        ;;
+    esac
+  done
 }
 
 # Check if kubernetes version is available

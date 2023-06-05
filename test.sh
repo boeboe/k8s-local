@@ -65,9 +65,7 @@ if ${TEST_ALL} ; then
   wait_cluster_ready "kind" "test2";
   wait_cluster_ready "minikube" "test3";
   echo "Starting all (k3s, kind and minikube) clusters: DONE" ; read -p "Press enter to continue" ;
-  remove_cluster "k3s" "test1" "test1";
-  remove_cluster "kind" "test2" "test2";
-  remove_cluster "minikube" "test3" "test3";
+  remove_all_clusters;
   echo "Removing all (k3s, kind and minikube) clusters: DONE" ; read -p "Press enter to continue" ;
 fi
 
